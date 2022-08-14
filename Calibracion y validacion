@@ -1,0 +1,88 @@
+library(airGR)
+RamisDataM = read.csv("D:/INTERPOLACION_R/RamisDataM.csv")
+head(RamisDataM)
+
+## preparation of the InputsModel object with month time step data
+## Preparacion de los objetos de entrada al modelo: InputsModel
+## Portable Operating System Interface, lo que significa; tiempo de calendario POSIXlt, linea de tiempo POSIXlt.
+
+BasinObs <- data.frame("YMD"=as.POSIXlt(seq.Date(from = as.Date("1998-01-01"),to=as.Date(
+  "2013-12-01"),by="month"),format="%Y-%m-%d"), "P"=as.numeric(RamisDataM$P_mm), "E"=as.numeric(RamisDataM$E_mm), 
+  "Q"=as.numeric(RamisDataM$Q_mm)) 
+
+InputsModel <- CreateInputsModel(FUN_MOD = RunModel_GR2M, DatesR = BasinObs$YMD,
+                                 Precip = BasinObs$P, PotEvap = BasinObs$E)
+## Run period selection
+## Selección del período de ejecución
+Ind_Run <- seq(which(format(BasinObs$YMD, format = "%Y-%m")=="1998-01"),
+               which(format(BasinObs$YMD, format = "%Y-%m")=="2008-12"))
+
+## Preparation of the RunOptions object
+## Preparación del objeto Opciones de ejecución
+RunOptions <- CreateRunOptions(FUN_MOD = RunModel_GR2M,
+                               InputsModel = InputsModel, IndPeriod_Run = Ind_Run)
+
+## simulation
+# Simulacion
+Param <- c(X1 = 265.072, X2 = 1.040)
+OutputsModel <- RunModel_GR2M(InputsModel = InputsModel, RunOptions = RunOptions, Param = Param)
+
+## Results preview
+## Vista previa de resultados
+plot(OutputsModel, Qobs = BasinObs$Q[Ind_Run])
+
+## efficiency criterion: Nash-Sutcliffe Efficiency
+## Criterio de eficiencia: Nash-Sutcliffe Efficiency
+InputsCrit <- CreateInputsCrit(FUN_CRIT = ErrorCrit_NSE, InputsModel = InputsModel,
+                               RunOptions = RunOptions, Obs = BasinObs$Q[Ind_Run])
+OutputsCrit <- ErrorCrit_NSE(InputsCrit = InputsCrit, OutputsModel = OutputsModel)
+
+## preparation of CalibOptions object
+CalibOptions <- CreateCalibOptions(FUN_MOD = RunModel_GR2M, FUN_CALIB = Calibration_Michel) 
+
+## calibration
+OutputsCalib <- Calibration_Michel(InputsModel = InputsModel, RunOptions = RunOptions, 
+                                   InputsCrit = InputsCrit, CalibOptions = CalibOptions, 
+                                   FUN_MOD = RunModel_GR2M, FUN_CRIT = ErrorCrit_NSE)
+
+## calibration
+OutputsCalib <- Calibration(InputsModel = InputsModel, RunOptions = RunOptions, 
+                            InputsCrit = InputsCrit, CalibOptions = CalibOptions, 
+                            FUN_MOD = RunModel_GR2M, FUN_CRIT = ErrorCrit_NSE,  
+                            FUN_CALIB = Calibration_Michel)
+
+
+## simulation
+Param <- OutputsCalib$ParamFinalR #parametros calibrados
+OutputsModel1 <- RunModel(InputsModel = InputsModel, RunOptions = RunOptions,  
+                          Param = Param, FUN = RunModel_GR2M) 
+
+## results preview
+plot(OutputsModel1, Qobs = BasinObs$Q[Ind_Run])
+
+
+## efficiency criterion: Nash-Sutcliffe Efficiency
+InputsCrit  <- CreateInputsCrit(FUN_CRIT = ErrorCrit_NSE, InputsModel = InputsModel,  
+                                RunOptions = RunOptions, Qobs = BasinObs$Q[Ind_Run])
+OutputsCrit <- ErrorCrit_NSE(InputsCrit = InputsCrit, OutputsModel = OutputsModel1)
+
+#################################
+## Validation
+## run period selection
+Ind_Run <- seq(which(format(BasinObs$YMD, format = "%Y-%m")=="2009-01"), 
+               which(format(BasinObs$YMD, format = "%Y-%m")=="2013-12")) 
+
+## preparation of the RunOptions object
+RunOptions <- CreateRunOptions(FUN_MOD = RunModel_GR2M, 
+                               InputsModel = InputsModel, IndPeriod_Run = Ind_Run)
+## simulation
+Param <- OutputsCalib$ParamFinalR
+OutputsModel2 <- RunModel_GR2M(InputsModel = InputsModel, RunOptions = RunOptions, Param = Param) 
+
+## results preview
+plot(OutputsModel2, Qobs = BasinObs$Q[Ind_Run])
+
+## efficiency criterion: Nash-Sutcliffe Efficiency
+InputsCrit <- CreateInputsCrit(FUN_CRIT = ErrorCrit_NSE, InputsModel = InputsModel, 
+                               RunOptions = RunOptions, Qobs = BasinObs$Q[Ind_Run])
+OutputsCrit <- ErrorCrit_NSE(InputsCrit = InputsCrit, OutputsModel = OutputsModel2)

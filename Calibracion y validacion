@@ -1,10 +1,12 @@
+# Instalar libreria airGR
 library(airGR)
 RamisDataM = read.csv("D:/INTERPOLACION_R/RamisDataM.csv")
 head(RamisDataM)
 
+#----------------------------------------- Entradas del modelo -----------------------------------------------
+
 ## preparation of the InputsModel object with month time step data
 ## Preparacion de los objetos de entrada al modelo: InputsModel
-## Portable Operating System Interface, lo que significa; tiempo de calendario POSIXlt, linea de tiempo POSIXlt.
 
 BasinObs <- data.frame("YMD"=as.POSIXlt(seq.Date(from = as.Date("1998-01-01"),to=as.Date(
   "2013-12-01"),by="month"),format="%Y-%m-%d"), "P"=as.numeric(RamisDataM$P_mm), "E"=as.numeric(RamisDataM$E_mm), 
@@ -12,40 +14,52 @@ BasinObs <- data.frame("YMD"=as.POSIXlt(seq.Date(from = as.Date("1998-01-01"),to
 
 InputsModel <- CreateInputsModel(FUN_MOD = RunModel_GR2M, DatesR = BasinObs$YMD,
                                  Precip = BasinObs$P, PotEvap = BasinObs$E)
+
 ## Run period selection
 ## Selección del período de ejecución
+
 Ind_Run <- seq(which(format(BasinObs$YMD, format = "%Y-%m")=="1998-01"),
                which(format(BasinObs$YMD, format = "%Y-%m")=="2008-12"))
 
 ## Preparation of the RunOptions object
-## Preparación del objeto Opciones de ejecución
+## Preparación del objeto RunOption
+
 RunOptions <- CreateRunOptions(FUN_MOD = RunModel_GR2M,
                                InputsModel = InputsModel, IndPeriod_Run = Ind_Run)
 
-## simulation
-# Simulacion
+#--------------------------- Simulacion con parametros por defecto ------------------------------------------
+## Simulation
+## Simulacion
+
 Param <- c(X1 = 265.072, X2 = 1.040)
 OutputsModel <- RunModel_GR2M(InputsModel = InputsModel, RunOptions = RunOptions, Param = Param)
 
 ## Results preview
 ## Vista previa de resultados
+
 plot(OutputsModel, Qobs = BasinObs$Q[Ind_Run])
 
 ## efficiency criterion: Nash-Sutcliffe Efficiency
 ## Criterio de eficiencia: Nash-Sutcliffe Efficiency
+
 InputsCrit <- CreateInputsCrit(FUN_CRIT = ErrorCrit_NSE, InputsModel = InputsModel,
                                RunOptions = RunOptions, Obs = BasinObs$Q[Ind_Run])
 OutputsCrit <- ErrorCrit_NSE(InputsCrit = InputsCrit, OutputsModel = OutputsModel)
 
-## preparation of CalibOptions object
+#------------------------------------ Calibracion del modelo -----------------------------------------------
+
+## Preparation of CalibOptions object
+## Preparación del objeto CalibOptions
+
 CalibOptions <- CreateCalibOptions(FUN_MOD = RunModel_GR2M, FUN_CALIB = Calibration_Michel) 
 
-## calibration
+## calibration 1
+
 OutputsCalib <- Calibration_Michel(InputsModel = InputsModel, RunOptions = RunOptions, 
                                    InputsCrit = InputsCrit, CalibOptions = CalibOptions, 
                                    FUN_MOD = RunModel_GR2M, FUN_CRIT = ErrorCrit_NSE)
 
-## calibration
+## calibration 2
 OutputsCalib <- Calibration(InputsModel = InputsModel, RunOptions = RunOptions, 
                             InputsCrit = InputsCrit, CalibOptions = CalibOptions, 
                             FUN_MOD = RunModel_GR2M, FUN_CRIT = ErrorCrit_NSE,  
@@ -53,6 +67,8 @@ OutputsCalib <- Calibration(InputsModel = InputsModel, RunOptions = RunOptions,
 
 
 ## simulation
+## Simulacion
+
 Param <- OutputsCalib$ParamFinalR #parametros calibrados
 OutputsModel1 <- RunModel(InputsModel = InputsModel, RunOptions = RunOptions,  
                           Param = Param, FUN = RunModel_GR2M) 
@@ -66,9 +82,10 @@ InputsCrit  <- CreateInputsCrit(FUN_CRIT = ErrorCrit_NSE, InputsModel = InputsMo
                                 RunOptions = RunOptions, Qobs = BasinObs$Q[Ind_Run])
 OutputsCrit <- ErrorCrit_NSE(InputsCrit = InputsCrit, OutputsModel = OutputsModel1)
 
-#################################
-## Validation
+#------------------------------------ Validacion del modelo -----------------------------------------------
 ## run period selection
+## Seleccion del periodo de ejecucion
+
 Ind_Run <- seq(which(format(BasinObs$YMD, format = "%Y-%m")=="2009-01"), 
                which(format(BasinObs$YMD, format = "%Y-%m")=="2013-12")) 
 
@@ -86,3 +103,5 @@ plot(OutputsModel2, Qobs = BasinObs$Q[Ind_Run])
 InputsCrit <- CreateInputsCrit(FUN_CRIT = ErrorCrit_NSE, InputsModel = InputsModel, 
                                RunOptions = RunOptions, Qobs = BasinObs$Q[Ind_Run])
 OutputsCrit <- ErrorCrit_NSE(InputsCrit = InputsCrit, OutputsModel = OutputsModel2)
+
+#---------------------------------------------- Fin ------------------------------------------------------
